@@ -1,0 +1,95 @@
+%% Read in the csv FIJI data for fluorescence
+
+fiji_data = readtable('spine7_trial4.csv');
+
+time_pixel = fiji_data(:,1);
+time_pixel = table2array(time_pixel);
+fluor_intensity = fiji_data(:,2);
+fluor_intensity = table2array(fluor_intensity);
+
+figure
+plot(fluor_intensity)
+
+time_ms = linspace(0,2000,4097);
+
+figure
+plot(time_ms,fluor_intensity);
+
+
+%% Truncate the signal to fit the curve 
+
+fluor_intensity = fluor_intensity(260:4097,:);
+time_ms = time_ms(:,260:4097);
+figure
+plot(fluor_intensity)
+
+
+
+
+%% Apply Savitzky-Golay Smoothing Filter
+order = 2; 
+framelen = 61;
+b = sgolay(order,framelen);
+
+steadystate = conv(fluor_intensity,b((framelen+1)/2,:),'valid');
+
+trans_begin = b(end:-1:(framelen+3)/2,:)*fluor_intensity(framelen:-1:1);
+
+trans_end = b((framelen-1)/2:-1:1,:)*fluor_intensity(end:-1:end-(framelen-1));
+
+sgolay_fluor_trans = [trans_begin; steadystate; trans_end];
+
+
+figure
+
+plot(time_ms,sgolay_fluor_trans);
+
+title('Filtered fluorescence trace')
+xlabel('Time/ms')
+ylabel('Fluorescence intensity')
+box off
+ 
+
+[fitresult, gof] = createFit(sgolay_fluor_trans);
+
+coeffvals = coeffvalues(fitresult);
+teq = coeffvals(2);
+
+figure
+plot(sgolay_fluor_trans)
+hold on
+plot(fitresult)
+box off
+xlim([-100 3500])
+ylim([35 80])
+title('Fitted FRAP curve for Spine7, trial 4')
+ylabel('Average Fluorescence Intensity')
+
+
+saveas(gcf,'\\nas01.itap.purdue.edu\puhome\My Documents\FRAP\3-19\spine7_trials\Associated curves\spine7_trial4_curve.svg')
+save('\\nas01.itap.purdue.edu\puhome\My Documents\FRAP\3-19\spine7_trials\Associated teq\spine7_trial4_teq.mat','teq')
+
+% T_eq stats 
+
+t_eq_spine7 = [teq_1 teq_2 teq_3 teq_4];
+trial_num = [1 2 3 4];
+
+figure
+scatter(trial_num, t_eq_spine7);
+title('T_eq for Spine 7 across 4 trials')
+ylabel('T_eq (ms)')
+xlabel('Trial number')
+box off
+grid on
+xlim([0 4 ])
+ylim([0 30])
+
+saveas(gcf, '\\nas01.itap.purdue.edu\puhome\My Documents\FRAP\3-19\spine7_trials\t_eq_for_all_trials.svg')
+
+figure
+boxplot(t_eq_spine7)
+xlabel('Spine 7')
+ylabel('T_eq (ms)')
+title('Boxplot for spine7 t_eq')
+
+saveas(gcf,'\\nas01.itap.purdue.edu\puhome\My Documents\FRAP\3-19\spine7_trials\boxplot_spine7_teq.svg')
